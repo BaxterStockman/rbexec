@@ -1,0 +1,536 @@
+#!/bin/sh
+
+# Try to figure out whether we're being sourced or executed as a script
+__RBEXEC_SOURCED="${RBEXEC_SOURCED:-}"
+if [ "${__RBEXEC_SOURCED:+SET}" != SET ]; then
+    # shellcheck disable=SC2128
+    if [ "${BASH:+SET}" = SET ] && [ "${BASH_SOURCE:+SET}" = SET ] && [ "$BASH_SOURCE" != "$0" ]; then
+        __RBEXEC_SOURCED=1
+    # :nocov:
+    elif [ "${ZSH_EVAL_CONTEXT:+SET}" = SET ]; then
+        case "$ZSH_EVAL_CONTEXT" in
+            *:file)
+                __RBEXEC_SOURCED=1
+                ;;
+        esac
+    elif [ "${KSH_VERSION:+SET}" = SET ]; then
+        # shellcheck disable=SC2154
+        case "$KSH_VERSION" in
+            '@(#)MIRBSD'*)
+                if [ "${0##*/}" = mksh ]; then
+                    __RBEXEC_SOURCED=1
+                fi
+                ;;
+            '@(#)PD'*)
+                if [ "${0##*/}" = pdksh ]; then
+                    __RBEXEC_SOURCED=1
+                fi
+                ;;
+            '@(#)LEGACY'*)
+                if [ "${0##*/}" = lksh ] || [ "${0##*/}" = pdksh ]; then
+                    __RBEXEC_SOURCED=1
+                fi
+                ;;
+            *)
+                if [ "$(cd "${0%/*}"; pwd -P)/${0##*/}" != "${.sh.file}" ]; then
+                    __RBEXEC_SOURCED=1
+                fi
+                ;;
+        esac
+
+    else
+        case "${0##*/}" in
+            sh|ash|dash)
+                __RBEXEC_SOURCED=1
+                ;;
+        esac
+    fi
+    # :nocov:
+fi
+
+rbexec() {
+    rbexec_normalize_path() {
+        for rbexec_normalized_path in "$@"; do
+            while : ; do
+                case "$rbexec_normalized_path" in
+                    *//*)
+                        rbexec_normalized_path="${rbexec_normalized_path%%//*}/${rbexec_normalized_path#*//}"
+                        ;;
+                    */./*)
+                        rbexec_normalized_path="${rbexec_normalized_path%%/./*}/${rbexec_normalized_path#*/./}"
+                        ;;
+                    *)
+                        break
+                        ;;
+                esac
+            done
+
+            # Remove trailing slash
+            echo "${rbexec_normalized_path%/}"
+        done
+
+        unset rbexec_normalized_path
+    }
+
+    rbexec_expand_rubies() {
+        target=''
+        target="$(rbexec_normalize_path "${1:?internal error: missing target file}")"
+        shift
+
+        # :nocov:
+        if [ $# -lt 1 ]; then
+            echo 1>&2 "rbexec_expand_rubies: internal error: missing callback"
+            return 1
+        fi
+        # :nocov:
+
+        if [ -e "$target" ]; then
+            if [ -d "$target" ]; then
+                if [ -d "${target}/bin" ]; then
+                    target="${target}/bin"
+                fi
+
+                # Handle shells configured to treat empty glob expansion as a
+                # fatal error
+                if (echo "$target"/ruby* 1>/dev/null 2>&1); then
+                    for rbexec_expanded_ruby in "$target"/ruby*; do
+                        if [ "$rbexec_expanded_ruby" = "$target/ruby*" ]; then
+                            continue
+                        fi
+
+                        "$@" "$rbexec_expanded_ruby"
+                    done
+                fi
+
+            elif [ -x "$target" ]; then
+                "$@" "$target"
+            fi
+        else
+                "$@" "$target"
+        fi
+    }
+
+    rbexec_iter_rubies() {
+        # :nocov:
+        if [ $# -lt 1 ]; then
+            echo 1>&2 "rbexec_iter_rubies: internal error: missing callback"
+            return 1
+        fi
+        # :nocov:
+
+        rbexec_rubies=''
+        rbexec_append_ruby() {
+            rbexec_found_ruby="$1"
+
+            # Only append Rubies that don't already appear in
+            # $RBEXEC_RUBIES
+            case ":${rbexec_rubies:-}:" in
+                *":${rbexec_found_ruby}:"*)
+                    :
+                    ;;
+                *)
+                    rbexec_rubies="${rbexec_rubies:-}${rbexec_rubies:+:}$rbexec_found_ruby"
+                    ;;
+            esac
+        }
+
+        rbexec_rubies_caller="$(rbexec_normalize_path "${RBEXEC_RUBIES:-}")"
+
+        while [ "${rbexec_rubies_caller:+SET}" = SET ]; do
+            case "$rbexec_rubies_caller" in
+                *:*)
+                    rbexec_expand_rubies "${rbexec_rubies_caller%%:*}" rbexec_append_ruby
+                    rbexec_rubies_caller="${rbexec_rubies_caller#*:}"
+                    ;;
+                *)
+                    rbexec_expand_rubies "$rbexec_rubies_caller" rbexec_append_ruby
+                    break
+                    ;;
+            esac
+        done
+
+        unset rbexec_rubies_caller
+
+        if [ "${RBEXEC_AUTO_ADD_RUBIES:-1}" = 1 ]; then
+            for rbexec_auto_add_rubies_dir in /opt/rubies ~/.rbfu/rubies ~/.rbenv/versions ~/.rvm/rubies ~/.rubies; do
+                if [ -d "$rbexec_auto_add_rubies_dir" ]; then
+                    if (echo "$rbexec_auto_add_rubies_dir"/* 1>/dev/null 2>&1); then
+                        for rbexec_auto_add_ruby in "$rbexec_auto_add_rubies_dir"/*; do
+                            if [ "$rbexec_auto_add_ruby" = "${rbexec_auto_add_rubies_dir}/*" ]; then
+                                continue
+                            fi
+
+                            rbexec_expand_rubies "$rbexec_auto_add_ruby" rbexec_append_ruby
+                        done
+                    fi
+                fi
+            done
+
+            unset rbexec_auto_add_rubies_dir rbexec_auto_add_ruby rbexec_found_ruby
+        fi
+
+        unset -f rbexec_append_ruby
+
+        rbexec_this_ruby=''
+
+        while [ "${rbexec_rubies:+SET}" = SET ] && [ "$rbexec_rubies" != "$rbexec_this_ruby" ]; do
+            rbexec_this_ruby="${rbexec_rubies%%:*}"
+
+            rbexec_expand_rubies "$rbexec_this_ruby" "$@" "$rbexec_this_ruby"
+
+            rbexec_rubies="${rbexec_rubies#${rbexec_this_ruby}:}"
+        done
+
+        unset rbexec_rubies rbexec_this_ruby
+    }
+
+    if [ "$#" -lt 1 ]; then
+        rbexec_current_ruby="$(command -v ruby 2>/dev/null)"
+
+        rbexec_print_rubies() {
+            rbexec_orig_ruby="$1"
+            shift
+            rbexec_iter_ruby="$1"
+
+            if [ "$rbexec_iter_ruby" = "$rbexec_current_ruby" ]; then
+                printf '* %s\n' "$rbexec_orig_ruby"
+            else
+                printf '  %s\n' "$rbexec_orig_ruby"
+            fi
+        }
+
+        rbexec_iter_rubies rbexec_print_rubies
+
+        unset -f rbexec_print_rubies
+        unset rbexec_current_ruby rbexec_iter_ruby rbexec_orig_ruby
+    else
+        rbexec_wanted_ruby=''
+        rbexec_wanted_ruby="$(rbexec_normalize_path "$1")"
+        shift
+
+        # If the provided argument exists, is not a directory, and is
+        # executable, there's no need to check $RBEXEC_RUBIES
+        if [ -e "$rbexec_wanted_ruby" ] && ! [ -d "$rbexec_wanted_ruby" ] && [ -x "$rbexec_wanted_ruby" ]; then
+            rbexec_ruby="$rbexec_wanted_ruby"
+        else
+            rbexec_ruby='' rbexec_match_ambiguity=''
+
+            rbexec_set_ruby() {
+                rbexec_orig_ruby="$1"
+                shift
+                rbexec_iter_ruby="$1"
+
+                if [ "${rbexec_match_ambiguity:-999}" != 0 ]; then
+                    case "$rbexec_iter_ruby" in
+                        "$rbexec_wanted_ruby")
+                            rbexec_ruby="$rbexec_iter_ruby"
+                            rbexec_match_ambiguity=0
+                            ;;
+                        # :nocov:
+                        *"$rbexec_wanted_ruby")
+                            if [ "${rbexec_match_ambiguity:-999}" -ge 1 ]; then
+                                rbexec_ruby="$rbexec_iter_ruby"
+                                rbexec_match_ambiguity=1
+                            fi
+                            ;;
+                        "$rbexec_wanted_ruby"*)
+                            if [ "${rbexec_match_ambiguity:-999}" -ge 2 ]; then
+                                rbexec_ruby="$rbexec_iter_ruby"
+                                rbexec_match_ambiguity=2
+                            fi
+                            ;;
+                        # :nocov:
+                        *"$rbexec_wanted_ruby"*)
+                            if [ "${rbexec_match_ambiguity:-999}" -ge 3 ]; then
+                                rbexec_ruby="$rbexec_iter_ruby"
+                                rbexec_match_ambiguity=3
+                            fi
+                            ;;
+                    esac
+                fi
+            }
+
+            unset rbexec_iter_ruby rbexec_orig_ruby rbexec_match_ambiguity
+
+            rbexec_iter_rubies rbexec_set_ruby
+
+            unset -f rbexec_set_ruby
+
+            # Fallback values if fuzzy matching didn't yield anything:
+            # 1. If the provided argument is a directory, assume user wants
+            #    directory + "/bin/ruby"
+            # 2. If the provided argument is not a directory, assume it refers
+            #    to a Ruby executable
+            if [ "${rbexec_ruby:+SET}" != SET ]; then
+                if [ -d "$rbexec_wanted_ruby" ]; then
+                    rbexec_ruby="${rbexec_wanted_ruby}/bin/ruby"
+                else
+                    rbexec_ruby="$rbexec_wanted_ruby"
+                fi
+            fi
+
+            unset rbexec_wanted_ruby
+
+            if ! [ -e "$rbexec_ruby" ]; then
+                printf 1>&2 -- '%s does not exist!\n' "$rbexec_ruby"
+                return 1
+            elif ! [ -x "$rbexec_ruby" ]; then
+                printf 1>&2 -- '%s is not executable!\n' "$rbexec_ruby"
+                return 1
+            fi
+        fi
+
+        rbexec_pythonprog='import sys; import signal; import subprocess; signal.alarm(int(sys.argv[1])); subprocess.call(sys.argv[2:])'
+
+        # :nocov:
+        if command -v timeout 1>/dev/null 2>&1; then
+            rbexec_timeout() {
+                timeout "$@"
+            }
+        elif command -v ruby 1>/dev/null 2>&1; then
+            rbexec_timeout() {
+                ruby -rtimeout -e '
+                    begin
+                        Timeout.timeout(ARGV.shift.to_i) { system(*ARGV) }
+                    rescue Timeout::Error
+                        exit 1
+                    end
+                '
+            }
+        elif command -v perl 1>/dev/null 2>&1; then
+            rbexec_timeout() {
+                perl -e 'alarm shift; exec @ARGV' "$@"
+            }
+        elif command -v python 1>/dev/null 2>&1; then
+            rbexec_timeout() {
+                python -c "$rbexec_pythonprog" "$@"
+            }
+        elif command -v python2 1>/dev/null 2>&1; then
+            rbexec_timeout() {
+                python2 -c "$rbexec_pythonprog" "$@"
+            }
+        else
+            rbexec_timeout() {
+                shift
+
+                if [ "${RBEXEC_PIPE_DOWN:-0}" != 1 ]; then
+                    # shellcheck disable=SC2016
+                    printf 1>&2 'Unable to timeout `%s`; execution may hang.  Disable this warning by setting RBEXEC_PIPE_DOWN=1.\n' "$*"
+                fi
+
+                "$@"
+            }
+        fi
+        # :nocov:
+
+        rbexec_rubyprog='Kernel.exit(("" << "1").to_i) unless Object.const_defined?(:RUBY_VERSION)'
+
+        # Close stdin to prevent hangs if "$rbexec_ruby" = "grep" or similar
+        if ! rbexec_timeout "${RBEXEC_TIMEOUT:-5}" "$rbexec_ruby" -e "$rbexec_rubyprog" 0<&-; then
+            unset rbexec_rubyprog
+            unset -f rbexec_timeout
+            printf 1>&2 -- '%s does not appear to be a Ruby executable.\n' "$rbexec_ruby"
+            return 1
+        fi
+
+        unset rbexec_pythonprog rbexec_rubyprog
+        unset -f rbexec_timeout
+
+        case "$-" in
+            *i*)
+                # :nocov:
+                rbexec_interactive=1
+                # :nocov:
+                ;;
+            *)
+                if [ -t 0 ]; then
+                    # :nocov:
+                    rbexec_interactive=1
+                    # :nocov:
+                else
+                    rbexec_interactive=0
+                fi
+                ;;
+        esac
+
+        rbexec_exec="${RBEXEC_EXEC:-}"
+        if [ "${rbexec_exec:+SET}" != SET ]; then
+            if [ "${RBEXEC_SOURCED:-1}" = 1 ] || [ "$rbexec_interactive" = 1 ]; then
+                rbexec_exec=''
+            else
+                rbexec_exec=1
+            fi
+        elif [ "$rbexec_exec" != 1 ]; then
+            rbexec_exec=''
+        fi
+
+        rbexec_shell="${RBEXEC_SHELL:-${SHELL:-sh}}"
+
+        # :nocov:
+        if [ "${ZSH_ARGZERO:+SET}" = SET ] && [ "${ZSH_SCRIPT:+SET}" != SET ]; then
+            rbexec_shell="$ZSH_ARGZERO"
+        elif [ "${ZSH_NAME:+SET}" = SET ]; then
+            rbexec_shell="$ZSH_NAME"
+        elif [ "${ZSH_VERSION:+SET}" = SET ]; then
+            rbexec_shell=zsh
+        elif [ "${KSH_VERSION:+SET}" = SET ]; then
+            case "$KSH_VERSION" in
+                '@(#)MIRBSD'*)
+                    rbexec_shell=mksh
+                    ;;
+                '@(#)PD'*)
+                    rbexec_shell=pdksh
+                    ;;
+                *)
+                    rbexec_shell=ksh
+                    ;;
+            esac
+        # :nocov:
+        elif [ "${BASH:+SET}" = SET ]; then
+            rbexec_shell="$BASH"
+        fi
+
+        ${rbexec_exec:+exec} "$rbexec_ruby" -e "
+# :nocov:
+class RbExec
+    attr_accessor :ruby, :shellopts
+    attr_writer :shell
+
+    def initialize(args = [])
+      @args = args
+      yield self if block_given?
+    end
+
+    def shell
+        return @shell if defined? @shell
+        require 'shell'
+        @shell ||= Shell.new.find_system_command('sh')
+    rescue Shell::Error::CommandNotFound
+        @shell = '/bin/sh'
+    end
+
+    def flags
+        return [] unless @shellopts
+        @shellopts.each_char.map { |c| %(-#{c}) }
+    end
+
+    def command
+        @args.empty? ? ([shell] + flags) : @args
+    end
+
+    # :skip:
+    def exec!
+        setenv!
+        exec(*command)
+    end
+    # :skip:
+
+    def ruby_engine
+        @ruby_engine ||= defined?(RUBY_ENGINE) ? RUBY_ENGINE : 'ruby'
+    end
+
+    def ruby_version
+        # Pre-1.9 compatibility
+        rbconfig_ruby_version = RbConfig::CONFIG['ruby_version'] if defined? RbConfig
+        (rbconfig_ruby_version || '').empty? ? RUBY_VERSION : rbconfig_ruby_version
+    end
+
+    def gem_root
+        @gem_root ||= (rubygems_present? ? Gem.default_dir : nil)
+    end
+
+    def gem_home
+        @gem_home ||= if rubygems_present? && Gem.respond_to?(:user_dir)
+                        Gem.user_dir
+                      else
+                        # :skip:
+                        File.join(ENV['HOME'], '.gem', ruby_engine, ruby_version)
+                        # :skip:
+                      end
+    end
+
+    def gem_path
+        return @gem_path if defined? @gem_paths
+        gem_paths = [gem_home, gem_root] + ENV.fetch('GEM_PATH', '').split(':')
+        @gem_path = gem_paths.compact.uniq.join(':')
+    end
+
+    def path
+        return @path if defined? @path
+
+        parents = Process.euid.zero? ? [gem_root] : [gem_home, gem_root]
+        to_add = parents.compact.map { |p| File.join(p, 'bin') }
+
+        existing_path = ENV.fetch('PATH', '').split(':')
+
+        if ruby
+            ruby_bindir = File.dirname(ruby)
+            to_add << ruby_bindir
+            # @todo clean up dots, redundant slashes, etc.
+            existing_path.reject! { |p| p == ruby_bindir }
+        end
+
+        @path = (to_add + existing_path).compact.join(':')
+    end
+
+    def rubygems_present?
+        @rubygems_present ||= begin
+                                require 'rubygems'
+                                true
+                              rescue LoadError
+                                # :skip:
+                                false
+                                # :skip:
+                              end
+    end
+
+    def to_h
+        {
+            'RUBY_ENGINE'   => ruby_engine,
+            'RUBY_VERSION'  => ruby_version,
+            'GEM_ROOT'      => gem_root,
+            'GEM_HOME'      => gem_home,
+            'GEM_PATH'      => gem_path,
+            'PATH'          => path
+        }
+    end
+
+    def setenv!
+        excluded = Process.euid.zero? ? %w[GEM_HOME GEM_PATH] : []
+
+        to_h.each do |k, v|
+            if excluded.include? k
+                ENV.delete(k)
+            else
+                ENV[k] = v
+            end
+        end
+    end
+end
+
+ruby, shell, shellopts, *argv = *ARGV
+
+rbexec = RbExec.new(argv) do |r|
+    r.ruby      = ruby
+    r.shell     = shell
+    r.shellopts = shellopts
+end
+
+rbexec.exec!
+# :nocov:
+" -- "$rbexec_ruby" "$rbexec_shell" "$-" "$@"
+
+    fi
+    rbexec_status=$?
+
+    unset -f rbexec_normalize_path rbexec_expand_rubies rbexec_iter_rubies
+    unset rbexec_wanted_ruby rbexec_ruby rbexec_exec rbexec_interactive rbexec_shell
+
+    eval "unset rbexec_status; return $rbexec_status"
+}
+
+if [ "$__RBEXEC_SOURCED" != 1 ]; then
+    RBEXEC_SOURCED=0 rbexec "$@"
+else
+    unset __RBEXEC_SOURCED
+fi

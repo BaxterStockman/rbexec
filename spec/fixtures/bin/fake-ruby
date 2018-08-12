@@ -1,0 +1,44 @@
+#!/bin/sh
+
+set -x
+
+ruby_version="${0%/bin/*}"
+ruby_version="${ruby_version##*/}"
+ruby_version="${ruby_version#ruby-}"
+
+RUBY_REAL=''
+RUBY_REAL="${RUBY_REAL:-$(command -v ruby)}"
+
+export RUBY_ENGINE=ruby
+export RUBY_VERSION="$ruby_version"
+export GEM_ROOT=''
+export GEM_HOME="${0%/*}/.gem/${RUBY_ENGINE}/${RUBY_VERSION}"
+export GEM_PATH="${GEM_HOME}${GEM_PATH:+:$GEM_PATH}"
+
+if [ "$(id -u)" -ne 0 ]; then
+    PATH="${GEM_HOME}/bin${PATH:+:$PATH}"
+fi
+
+export PATH="${0%/*}${PATH:+:$PATH}"
+
+unset ruby_version
+
+if [ "$1" = -- ]; then
+    shift
+fi
+
+case "$1" in
+    # Handle rbexec passing us `-e`
+    -*)
+        set -- "$RUBY_REAL" "$@"
+        ;;
+    *)
+        :
+        ;;
+esac
+
+if [ $# -eq 0 ]; then
+    set -- /bin/sh
+fi
+
+exec "$@"

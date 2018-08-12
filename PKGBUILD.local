@@ -1,0 +1,14 @@
+# http://www.kornshell.com/
+#   _Software_
+#   _The Official AT&T Release of KornShell 93_
+#   ... _EPL license page_
+# http://www2.research.att.com/~astopen/download/licenses/epl-1.0.html
+
+###############################################################################
+# Please visit the EPL License page for the username and password
+_opt_EPLUSER=''
+_opt_EPLPASS=''
+_opt_EPLURL='http://www.research.att.com/sw/download'
+_opt_InstallBETA=1  # Default: 1, 0 to build release version
+_opt_InstallNMAKE=0 # Default: 0, 1 to Install nmake
+###############################################################################

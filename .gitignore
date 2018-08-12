@@ -1,0 +1,9 @@
+.bundle
+.rubocop-*
+Gemfile.custom
+Gemfile.custom.lock
+coverage/
+lib/rbexec.rb
+man/
+!man/*.md
+tmp/
