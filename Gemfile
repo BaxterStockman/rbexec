@@ -20,7 +20,7 @@ source 'https://rubygems.org' do
     end
 
     if RUBY_VERSION >= '2.2.7'
-      gem 'bashcov'
+      gem 'bashcov', github: 'infertux/bashcov', branch: 'master'
       gem 'coveralls'
     end
   end
