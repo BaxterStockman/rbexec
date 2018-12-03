@@ -23,7 +23,6 @@ RSpec.shared_examples 'rbexec' do |shell|
   end
 
   around(:each) do |example|
-    nobundler!
     with_environment('BASHCOV_COMMAND_NAME' => example.full_description, &example)
   end
 

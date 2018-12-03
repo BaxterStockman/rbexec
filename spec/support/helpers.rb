@@ -87,11 +87,6 @@ module_function
     found.first
   end
 
-  def nobundler!
-    bundler_keys = ENV.keys.select { |k| k.start_with? 'BUNDLER' } + %w[RUBYLIB RUBYOPT]
-    bundler_keys.each { |k| delete_environment_variable(k) }
-  end
-
   def mock_rubies(ruby, dir, aliases = [])
     return if aliases.empty?
 
