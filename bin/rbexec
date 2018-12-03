@@ -299,7 +299,7 @@ rbexec() {
             }
         elif command -v perl 1>/dev/null 2>&1; then
             rbexec_timeout() {
-                perl -e 'alarm shift; exec @ARGV' "$@"
+                perl -e 'alarm shift @ARGV; exec @ARGV' "$@"
             }
         elif command -v python 1>/dev/null 2>&1; then
             rbexec_timeout() {
