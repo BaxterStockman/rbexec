@@ -372,11 +372,15 @@ RSpec.shared_examples 'rbexec' do |shell|
           parent_noent = []
 
           rbexec_auto_add_ruby_dirs_noent.each do |dir|
+            begin
+              dir.mkpath
+            rescue StandardError
+              next
+            end
+
             find_first_missing_parent_path(dir).tap do |parent|
               parent_noent << parent unless parent.nil?
             end
-
-            dir.mkpath
           end
 
           example.run
@@ -384,7 +388,9 @@ RSpec.shared_examples 'rbexec' do |shell|
           parent_noent.each(&:rmtree)
         end
 
-        let(:rbexec_auto_add_ruby_dirs_empty) { rbexec_auto_add_ruby_dirs.select { |dir| dir.children.empty? } }
+        let(:rbexec_auto_add_ruby_dirs_empty) do
+          rbexec_auto_add_ruby_dirs.select { |dir| dir.exist? && dir.children.empty? }
+        end
 
         it 'displays no Rubies under those directories' do
           skip 'No empty auto-added Ruby directories are present on your system' if rbexec_auto_add_ruby_dirs_empty.empty?
