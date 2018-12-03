@@ -2,6 +2,7 @@
 .rubocop-*
 Gemfile.custom
 Gemfile.custom.lock
+Gemfile.lock
 coverage/
 lib/rbexec.rb
 man/
