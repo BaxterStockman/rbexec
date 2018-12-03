@@ -17,7 +17,7 @@ RSpec.shared_examples 'rbexec' do |shell|
   end
 
   around(:each, :mock_rubies => true) do |example|
-    abort'you must defined :ruby_aliases with let/let!' unless respond_to?(:ruby_aliases)
+    abort 'you must define :ruby_aliases with let/let!' unless respond_to?(:ruby_aliases)
     abort ':ruby_aliases must be an Array' unless ruby_aliases.is_a?(Array)
     with_mocked_rubies(fake_ruby, rubies_path, ruby_aliases, &example)
   end
