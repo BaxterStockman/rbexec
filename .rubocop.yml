@@ -3,9 +3,16 @@ inherit_from: http://relaxed.ruby.style/rubocop.yml
 Layout/AccessModifierIndentation:
   EnforcedStyle: outdent
 
+Layout/EmptyLineAfterGuardClause:
+  Enabled: false
+
 Layout/IndentationWidth:
   Exclude:
     - 'lib/rbexec.rb'
+
+Layout/AlignHash:
+  EnforcedColonStyle: table
+  EnforcedHashRocketStyle: table
 
 Layout/IndentHash:
   Exclude:

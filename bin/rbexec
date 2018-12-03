@@ -486,12 +486,12 @@ class RbExec
 
     def to_h
         {
-            'RUBY_ENGINE'   => ruby_engine,
-            'RUBY_VERSION'  => ruby_version,
-            'GEM_ROOT'      => gem_root,
-            'GEM_HOME'      => gem_home,
-            'GEM_PATH'      => gem_path,
-            'PATH'          => path
+            'RUBY_ENGINE'  => ruby_engine,
+            'RUBY_VERSION' => ruby_version,
+            'GEM_ROOT'     => gem_root,
+            'GEM_HOME'     => gem_home,
+            'GEM_PATH'     => gem_path,
+            'PATH'         => path
         }
     end
 
