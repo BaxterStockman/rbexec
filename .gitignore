@@ -7,3 +7,4 @@ lib/rbexec.rb
 man/
 !man/*.md
 tmp/
+vendor/
