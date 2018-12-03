@@ -355,7 +355,7 @@ rbexec() {
 
         rbexec_exec="${RBEXEC_EXEC:-}"
         if [ "${rbexec_exec:+SET}" != SET ]; then
-            if [ "${RBEXEC_SOURCED:-1}" = 1 ] || [ "$rbexec_interactive" = 1 ]; then
+            if [ "${RBEXEC_SOURCED:-${__RBEXEC_SOURCED:-1}}" = 1 ] || [ "$rbexec_interactive" = 1 ]; then
                 rbexec_exec=''
             else
                 rbexec_exec=1
@@ -530,7 +530,7 @@ rbexec.exec!
 }
 
 if [ "$__RBEXEC_SOURCED" != 1 ]; then
-    RBEXEC_SOURCED=0 rbexec "$@"
+    rbexec "$@"
 else
     unset __RBEXEC_SOURCED
 fi
