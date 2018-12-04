@@ -19,14 +19,14 @@ source 'https://rubygems.org' do
       gem 'rubocop', '~> 0.50'
     end
 
-    if RUBY_VERSION >= '2.2.7'
+    if RUBY_VERSION >= '2.4.0'
       gem 'bashcov', github: 'infertux/bashcov', branch: 'master'
       gem 'coveralls'
     end
   end
 
   group :development do
-    if RUBY_VERSION >= '2.0.0'
+    if RUBY_VERSION >= '2.1.0'
       gem 'kramdown-man'
     end
 
