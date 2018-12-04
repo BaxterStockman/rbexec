@@ -61,3 +61,6 @@ Layout/IndentHeredoc:
 
 Style/SymbolArray:
   Enabled: false
+
+Style/RedundantFreeze:
+  Enabled: false
