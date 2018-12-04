@@ -94,9 +94,9 @@ RSpec.shared_examples 'rbexec' do |shell|
 
         expect(re).to include('PATH'), 'environment contains PATH'
         path = re['PATH'].split(':')
-        expect(path[0]).to eq(File.join(re['GEM_HOME'], 'bin')), 'First $PATH entry is $GEM_HOME/bin'
-        expect(path[1]).to eq(File.join(re['GEM_ROOT'], 'bin')), 'Second $PATH entry is $GEM_ROOT/bin'
-        expect(path[2]).to eq(File.dirname(ruby)), "Third element in $PATH is Ruby's bindir"
+        expect(path[0]).to eq(File.join(re['GEM_HOME'], 'bin')), 'First PATH entry is $GEM_HOME/bin'
+        expect(path[1]).to eq(File.join(re['GEM_ROOT'], 'bin')), 'Second PATH entry is $GEM_ROOT/bin'
+        expect(path[2]).to eq(File.dirname(ruby)), "Third PATH entry is Ruby's bindir"
       end
     end
   end
@@ -104,13 +104,13 @@ RSpec.shared_examples 'rbexec' do |shell|
   context 'when no command is given' do
     let(:rbexec_rubies) { %w[winken blinken nod] }
 
-    it 'prints the list of rubies in $RBEXEC_RUBIES' do
+    it 'prints the list of rubies in RBEXEC_RUBIES' do
       env = { 'RBEXEC_RUBIES' => rbexec_rubies.join(':'), 'RBEXEC_AUTO_ADD_RUBIES' => '0' }
       with_environment env do
         exec_rbexec(:shell => shell)
         # ignore bashcov/simplecov coverage generation message by only grabbing
         # the first several lines, which should represent the contents of
-        # $RBEXEC_RUBIES
+        # RBEXEC_RUBIES
         rbexec_rubies_output = last_command_started.stdout.each_line.take(rbexec_rubies.count).map(&:strip)
         expect(rbexec_rubies_output).to eq(rbexec_rubies)
       end
@@ -278,7 +278,7 @@ RSpec.shared_examples 'rbexec' do |shell|
             expect(printed_rubies).not_to be_empty
 
             printed_rubies.take(rbexec_rubies.count).each do |printed_ruby|
-              expect(printed_ruby).to satisfy('match exactly one entry in $RBEXEC_RUBIES') do |v|
+              expect(printed_ruby).to satisfy('match exactly one entry in RBEXEC_RUBIES') do |v|
                 rbexec_rubies.one? { |rbexec_ruby| v.start_with? rbexec_ruby }
               end
             end
@@ -333,7 +333,7 @@ RSpec.shared_examples 'rbexec' do |shell|
         printed_rubies = rbexec_available_rubies(:shell => shell, :ruby => ruby)
 
         printed_rubies.take(rbexec_rubies.count).each do |printed_ruby|
-          expect(printed_ruby).to satisfy('match exactly one entry in $RBEXEC_RUBIES') do |v|
+          expect(printed_ruby).to satisfy('match exactly one entry in RBEXEC_RUBIES') do |v|
             rbexec_rubies.one? { |rbexec_ruby| v.start_with? rbexec_ruby }
           end
         end
