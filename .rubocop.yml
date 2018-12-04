@@ -1,5 +1,8 @@
 inherit_from: http://relaxed.ruby.style/rubocop.yml
 
+require:
+  - .rubocop.rb
+
 Layout/AccessModifierIndentation:
   EnforcedStyle: outdent
 
