@@ -1,5 +1,15 @@
 # frozen_string_literal: true
 
+def try_define_tasks(lib_name, *task_names)
+  yield if block_given?
+rescue LoadError
+  task_names.each do |task_name|
+    task(task_name) do |t|
+      warn "#{lib_name} is not available; unable to run task `#{t.name}'."
+    end
+  end
+end
+
 require 'pathname'
 
 lib = Pathname.new('../lib').expand_path(__FILE__).to_s
@@ -10,18 +20,14 @@ require 'rspec/core/rake_task'
 
 RSpec::Core::RakeTask.new
 
-begin
+try_define_tasks(*%w[rubocop rubocop rubocop:auto_correct]) do
   require 'rubocop/rake_task'
   RuboCop::RakeTask.new
-rescue LoadError
-  %w[rubocop rubocop:auto_correct].each { |name| task(name) }
 end
 
-begin
+try_define_tasks(*%w[kramdown-man man]) do
   require 'kramdown/man/task'
   Kramdown::Man::Task.new
-rescue LoadError
-  task(:man)
 end
 
 RbExec::RakeTask.new.tap do |tasklib|
