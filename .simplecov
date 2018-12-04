@@ -32,9 +32,10 @@ def formatters(silent = false)
       f << SimpleCov::Formatter::HTMLFormatter << SimpleCov::Formatter::Console
     end
 
-    if RUBY_VERSION >= '2.2.7'
+    begin
       require 'coveralls'
       f << Coveralls::SimpleCov::Formatter
+    rescue LoadError # rubocop:disable Lint/HandleExceptions
     end
   end
 end

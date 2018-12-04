@@ -5,8 +5,12 @@ require 'spec_helper'
 require 'shell'
 
 shells = %w[sh ash dash ksh mksh pdksh bash zsh]
-if RUBY_VERSION >= '2.2.7'
+
+begin
+  require 'bashcov/version'
   shells << ['bashcov', '--root', File.expand_path('../..', __FILE__), '--']
+rescue LoadError # rubocop:disable Lint/HandleExceptions
+  # pass
 end
 
 shells.each do |shell|
